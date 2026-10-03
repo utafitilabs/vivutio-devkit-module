@@ -24,6 +24,13 @@ on:
       devkit-ref:
         type: string
         default: '0.1'
+      expect-repository:
+        description: In a release, the checkout whose head must be the commit about to be tagged
+        type: string
+        default: ''
+      expect-sha:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -63,6 +70,18 @@ jobs:
           repository: utafitilabs/vivutio-skeleton
           ref: ${{ inputs.skeleton-ref }}
           path: fleet/vivutio-skeleton
+
+      # The checkouts are of lines, by name, so every version reads as the
+      # line's; a release then insists the line still stands where it was
+      # dispatched, so the commit the gate passes is the one that is tagged.
+      - name: The line has not moved since the release was asked for
+        if: inputs.expect-sha != ''
+        env:
+          REPOSITORY: ${{ inputs.expect-repository }}
+          EXPECTED: ${{ inputs.expect-sha }}
+        run: |
+          head=$(git -C "fleet/$REPOSITORY" rev-parse HEAD)
+          [ "$head" = "$EXPECTED" ] || { echo "::error::$REPOSITORY's line is at $head, not $EXPECTED: dispatch the release again"; exit 1; }
 
       - uses: shivammathur/setup-php@v2
         with:
