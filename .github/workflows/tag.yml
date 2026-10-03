@@ -1,0 +1,61 @@
+name: Tag
+
+# The tag a release workflow mints, after its head gate: the version belongs to
+# the line it is cut from, is not tagged yet, and goes on the commit the gate
+# tested. Then it waits until Packagist lists it, so the released gate that
+# follows reads the new version and not the one before.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      package:
+        description: The package's name on Packagist
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: v${{ inputs.version }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      PACKAGE: ${{ inputs.package }}
+      LINE: ${{ github.ref_name }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: The version belongs to this line and is not tagged yet
+        run: |
+          version="$VERSION"
+          line="$LINE"
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::$version is not MAJOR.MINOR.PATCH"; exit 1; }
+          case "$version" in "$line".*) ;; *) echo "::error::$version is not on the $line line"; exit 1;; esac
+          case "$version" in 0.*) ;; *) echo "::error::Only 0.x is released by the workflow; 1.0 is the owner's"; exit 1;; esac
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then echo "::error::v$version is tagged already"; exit 1; fi
+
+      - name: Tag the commit the gate tested
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$VERSION" -m "v$VERSION" "$SHA"
+          git push origin "v$VERSION"
+
+      - name: Packagist lists it
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fs "https://repo.packagist.org/p2/$PACKAGE.json" | grep -Eq "\"version\": *\"v$VERSION\""; then
+              echo "Packagist lists $PACKAGE v$VERSION" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Packagist never listed $PACKAGE v$VERSION"; exit 1

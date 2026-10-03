@@ -1,0 +1,99 @@
+name: The fleet gate
+
+# The gate as a workflow every repository of the platform calls: in head mode
+# over the version lines (or the exact commits a release is about to tag), in
+# released mode over what Packagist hands out. A host installation is made from
+# the skeleton with this kit in it, and the gate creates a project from nothing
+# beside it.
+#
+# https://docs.github.com/en/actions/sharing-automations/reusing-workflows
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: head or released
+        type: string
+        required: true
+      core-ref:
+        type: string
+        default: '0.1'
+      skeleton-ref:
+        type: string
+        default: '0.1'
+      devkit-ref:
+        type: string
+        default: '0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: fleet:gate --mode=${{ inputs.mode }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-devkit-module
+          ref: ${{ inputs.devkit-ref }}
+          path: fleet/vivutio-devkit-module
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio
+          ref: ${{ inputs.core-ref }}
+          path: fleet/vivutio
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-skeleton
+          ref: ${{ inputs.skeleton-ref }}
+          path: fleet/vivutio-skeleton
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          coverage: none
+          tools: composer:v2
+
+      # The host only runs the gate; in released mode the project the gate
+      # judges comes from Packagist, never from these checkouts.
+      - name: A host installation with this kit
+        run: |
+          cp -R fleet/vivutio-skeleton host && rm -rf host/.git
+          cd host
+          echo 'DATABASE_URL="postgresql://app:app@127.0.0.1:5432/app?serverVersion=17&charset=utf8"' > .env.local
+          composer config repositories.core '{"type":"path","url":"../fleet/vivutio","options":{"symlink":false}}'
+          composer config repositories.devkit '{"type":"path","url":"../fleet/vivutio-devkit-module"}'
+          composer require --no-interaction --no-progress "vivutio/vivutio:0.1.x-dev as 0.1.0"
+          composer require --dev --no-interaction --no-progress "vivutio/devkit-module:*@dev"
+          sed -i "s/^];/    Vivutio\\\\Devkit\\\\VivutioDevkitBundle::class => ['dev' => true, 'test' => true],\n];/" config/bundles.php
+          php bin/console cache:clear
+
+      - name: fleet:gate --mode=${{ inputs.mode }}
+        working-directory: host
+        run: |
+          if [ '${{ inputs.mode }}' = head ]; then
+            php bin/console fleet:gate --mode=head --workspace="$GITHUB_WORKSPACE/fleet" --database-url='postgresql://app:app@127.0.0.1:5432/fleet_gate?serverVersion=17&charset=utf8'
+          else
+            php bin/console fleet:gate --mode=released --keep --database-url='postgresql://app:app@127.0.0.1:5432/fleet_gate?serverVersion=17&charset=utf8' | tee gate.log
+            # A green gate over an older release is not a pass: say what it installed.
+            project=$(sed -n 's/.*kept \(.*\)$/\1/p' gate.log | tail -1 | tr -d ' ')
+            echo "The released gate installed:" >> "$GITHUB_STEP_SUMMARY"
+            (cd "$project" && composer show 'vivutio/*' --format=text) | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
