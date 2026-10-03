@@ -1,0 +1,63 @@
+{
+    "name": "vivutio/devkit-module",
+    "type": "symfony-bundle",
+    "description": "The vivutio development kit: the fleet gate, which creates a project from the skeleton and proves the platform installs and runs as one product. Development only.",
+    "keywords": [
+        "devkit",
+        "symfony",
+        "vivutio"
+    ],
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Ezekiel Mjema",
+            "homepage": "https://github.com/eemjema"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "ext-pdo": "*",
+        "symfony/browser-kit": "^8.0",
+        "symfony/config": "^8.0",
+        "symfony/console": "^8.0",
+        "symfony/css-selector": "^8.0",
+        "symfony/dependency-injection": "^8.0",
+        "symfony/dom-crawler": "^8.0",
+        "symfony/http-client": "^8.0",
+        "symfony/http-kernel": "^8.0",
+        "symfony/mime": "^8.0",
+        "symfony/process": "^8.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^13.2",
+        "symfony/framework-bundle": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Vivutio\\Devkit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Vivutio\\Devkit\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "cs:fix": "php-cs-fixer fix",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "phpstan": "phpstan analyse --no-progress --memory-limit=1G",
+        "test": "phpunit",
+        "check": [
+            "@cs:check",
+            "@phpstan",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
