@@ -24,6 +24,9 @@ on:
       devkit-ref:
         type: string
         default: '0.1'
+      property-ref:
+        type: string
+        default: '0.1'
       expect-repository:
         description: In a release, the checkout whose head must be the commit about to be tagged
         type: string
@@ -71,6 +74,12 @@ jobs:
           ref: ${{ inputs.skeleton-ref }}
           path: fleet/vivutio-skeleton
 
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-property-module
+          ref: ${{ inputs.property-ref }}
+          path: fleet/vivutio-property-module
+
       # The checkouts are of lines, by name, so every version reads as the
       # line's; a release then insists the line still stands where it was
       # dispatched, so the commit the gate passes is the one that is tagged.
@@ -102,6 +111,9 @@ jobs:
           composer require --no-interaction --no-progress "vivutio/vivutio:0.1.x-dev as 0.1.0"
           composer require --dev --no-interaction --no-progress "vivutio/devkit-module:*@dev"
           sed -i "s/^];/    Vivutio\\\\Devkit\\\\VivutioDevkitBundle::class => ['dev' => true, 'test' => true],\n];/" config/bundles.php
+          # What the fleet is made of: the official modules, each with its first page.
+          mkdir -p config/packages
+          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" > config/packages/devkit.yaml
           php bin/console cache:clear
 
       - name: fleet:gate --mode=${{ inputs.mode }}
