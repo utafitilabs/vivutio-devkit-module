@@ -50,12 +50,17 @@ jobs:
           git tag -a "v$VERSION" -m "v$VERSION" "$SHA"
           git push origin "v$VERSION"
 
+      # Packagist lists a tag when its hook has run and its mirror has caught
+      # up, usually within minutes and once past twenty; waiting most of an
+      # hour lets the released gate run in the same release.
       - name: Packagist lists it
+        timeout-minutes: 50
         run: |
-          for i in $(seq 1 60); do
+          for i in $(seq 1 180); do
             if curl -fs "https://repo.packagist.org/p2/$PACKAGE.json" | grep -Eq "\"version\": *\"v$VERSION\""; then
               echo "Packagist lists $PACKAGE v$VERSION" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0
             fi
             sleep 15
           done
-          echo "::error::Packagist never listed $PACKAGE v$VERSION"; exit 1
+          echo "::error::Packagist has not listed $PACKAGE v$VERSION after 45 minutes. The tag stands; once Packagist lists it, run the released gate by hand: bin/console fleet:gate --mode=released"
+          exit 1
