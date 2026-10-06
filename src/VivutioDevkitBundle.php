@@ -43,7 +43,11 @@ final class VivutioDevkitBundle extends AbstractBundle
                     ->children()
                         ->arrayNode('official_modules')->scalarPrototype()->end()->end()
                         ->arrayNode('after_migrate')->scalarPrototype()->end()->end()
+                        // A module is named as its package is, "front-desk"; a dash
+                        // in a key is otherwise turned into an underscore.
+                        // @see https://symfony.com/doc/current/components/config/definition.html#normalization
                         ->arrayNode('modules')
+                            ->normalizeKeys(false)
                             ->useAttributeAsKey('name')
                             ->arrayPrototype()
                                 ->children()->scalarNode('page')->isRequired()->end()->end()
