@@ -27,6 +27,15 @@ on:
       property-ref:
         type: string
         default: '0.1'
+      front-desk-ref:
+        type: string
+        default: '0.1'
+      touring-ref:
+        type: string
+        default: '0.1'
+      sourcing-ref:
+        type: string
+        default: '0.1'
       expect-repository:
         description: In a release, the checkout whose head must be the commit about to be tagged
         type: string
@@ -80,6 +89,24 @@ jobs:
           ref: ${{ inputs.property-ref }}
           path: fleet/vivutio-property-module
 
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-front-desk-module
+          ref: ${{ inputs.front-desk-ref }}
+          path: fleet/vivutio-front-desk-module
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-touring-module
+          ref: ${{ inputs.touring-ref }}
+          path: fleet/vivutio-touring-module
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-sourcing-module
+          ref: ${{ inputs.sourcing-ref }}
+          path: fleet/vivutio-sourcing-module
+
       # The checkouts are of lines, by name, so every version reads as the
       # line's; a release then insists the line still stands where it was
       # dispatched, so the commit the gate passes is the one that is tagged.
@@ -113,7 +140,7 @@ jobs:
           sed -i "s/^];/    Vivutio\\\\Devkit\\\\VivutioDevkitBundle::class => ['dev' => true, 'test' => true],\n];/" config/bundles.php
           # What the fleet is made of: the official modules, each with its first page.
           mkdir -p config/packages
-          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" > config/packages/devkit.yaml
+          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" > config/packages/devkit.yaml
           php bin/console cache:clear
 
       - name: fleet:gate --mode=${{ inputs.mode }}
