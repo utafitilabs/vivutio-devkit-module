@@ -156,9 +156,10 @@ jobs:
           composer require --no-interaction --no-progress "vivutio/vivutio:0.1.x-dev as 0.1.0"
           composer require --dev --no-interaction --no-progress "vivutio/devkit-module:*@dev"
           sed -i "s/^];/    Vivutio\\\\Devkit\\\\VivutioDevkitBundle::class => ['dev' => true, 'test' => true],\n];/" config/bundles.php
-          # What the fleet is made of: the official modules, each with its first page.
+          # What the fleet is made of: the official modules, each with its first page,
+          # and the packs that bring them.
           mkdir -p config/packages
-          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" > config/packages/devkit.yaml
+          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" '        packs:' "            supplier: ['property']" "            operator: ['touring', 'sourcing']" > config/packages/devkit.yaml
           php bin/console cache:clear
 
       - name: fleet:gate --mode=${{ inputs.mode }}
