@@ -45,6 +45,9 @@ on:
       operator-pack-ref:
         type: string
         default: '0.1'
+      agency-pack-ref:
+        type: string
+        default: '0.1'
       expect-repository:
         description: In a release, the checkout whose head must be the commit about to be tagged
         type: string
@@ -133,6 +136,12 @@ jobs:
           repository: utafitilabs/vivutio-operator-pack
           ref: ${{ inputs.operator-pack-ref }}
           path: fleet/vivutio-operator-pack
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-agency-pack
+          ref: ${{ inputs.agency-pack-ref }}
+          path: fleet/vivutio-agency-pack
 
       # The checkouts are of lines, by name, so every version reads as the
       # line's; a release then insists the line still stands where it was
