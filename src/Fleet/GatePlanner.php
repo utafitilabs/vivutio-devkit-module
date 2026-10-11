@@ -16,7 +16,9 @@ namespace Vivutio\Devkit\Fleet;
 /**
  * The skeleton's install guide, as a list of steps the runner performs.
  *
- * Released mode is the guide as written, against the published repositories.
+ * Released mode is the guide as written, against the published repositories:
+ * a module a pack brings is installed through the pack's alias, as the README
+ * tells the reader to.
  * Head mode is the same guide against the sibling checkouts: the project is
  * created from the skeleton's checkout without installing, since the core it
  * requires is not published before its first tag, then pointed at the core's
@@ -49,7 +51,10 @@ final readonly class GatePlanner
         if ($request->isHead()) {
             // https://getcomposer.org/doc/03-cli.md#validate
             $steps[] = new GateStep(GateStepKind::ValidateSkeleton, 'the skeleton validates', ['composer', 'validate', '--strict', '--no-check-publish'], subject: $request->skeletonCheckout());
-            $steps[] = new GateStep(GateStepKind::ReadmeListsModules, 'the skeleton lists every official module', subject: $request->skeletonCheckout());
+            $steps[] = new GateStep(GateStepKind::ReadmeListsModules, 'the skeleton lists every official module', subject: $request->skeletonCheckout(), requires: [
+                ...array_map(static fn (ModuleUnderGate $module): string => $module->package(), $request->modules),
+                ...array_map(static fn (PackUnderGate $pack): string => 'composer require '.$pack->name, $settings->packsWithin($request->modules)),
+            ]);
         }
 
         $steps = [...$steps, ...$this->createTheProject($request)];
@@ -73,8 +78,30 @@ final readonly class GatePlanner
             $steps[] = new GateStep(GateStepKind::OpenPage, $page.' answers', subject: $route, expect: $shows);
         }
 
+        $packs = $settings->packsWithin($request->modules);
+        $required = [];
         foreach ($request->modules as $module) {
-            $steps = [...$steps, ...$this->addTheModule($settings, $request, $module)];
+            $pack = $request->isHead() ? null : $this->packOf($packs, $module);
+            if (null === $pack) {
+                $require = $request->isHead()
+                    ? $this->pointAt($module->package(), $module->checkout($request->workspace))
+                    : [new GateStep(GateStepKind::Shell, $module->package().': require', ['composer', 'require', $module->package(), '--no-interaction', '--no-progress'])];
+            } else {
+                $require = isset($required[$pack->name]) ? [] : [
+                    new GateStep(GateStepKind::Shell, $pack->name.': require, as the README says', ['composer', 'require', $pack->name, '--no-interaction', '--no-progress']),
+                    $this->unpacked($pack),
+                ];
+                $required[$pack->name] = true;
+            }
+            $steps = [...$steps, ...$require, ...$this->addTheModule($settings, $module)];
+        }
+
+        // Before a tag a pack is not published: it is required from its
+        // checkout once the modules it names are, and must unpack into them.
+        if ($request->isHead()) {
+            foreach ($packs as $pack) {
+                $steps = [...$steps, ...$this->pointAt($pack->package(), $pack->checkout($request->workspace)), $this->unpacked($pack)];
+            }
         }
 
         return new GatePlan($steps);
@@ -125,22 +152,36 @@ final readonly class GatePlanner
     /**
      * @return list<GateStep>
      */
-    private function addTheModule(FleetSettings $settings, GateRequest $request, ModuleUnderGate $module): array
+    private function addTheModule(FleetSettings $settings, ModuleUnderGate $module): array
     {
         $package = $module->package();
 
-        $steps = $request->isHead()
-            ? $this->pointAt($package, $module->checkout($request->workspace))
-            : [new GateStep(GateStepKind::Shell, $package.': require', ['composer', 'require', $package, '--no-interaction', '--no-progress'])];
-
         return [
-            ...$steps,
             ...$this->install($settings, $package),
             new GateStep(GateStepKind::Shell, $package.': the project\'s own tests', ['composer', 'test']),
             new GateStep(GateStepKind::Serve, $package.': the project is served again'),
             new GateStep(GateStepKind::SignIn, $package.': the administrator signs in'),
             new GateStep(GateStepKind::OpenPage, $package.': its first page answers', subject: $module->page),
         ];
+    }
+
+    /**
+     * @param list<PackUnderGate> $packs
+     */
+    private function packOf(array $packs, ModuleUnderGate $module): ?PackUnderGate
+    {
+        foreach ($packs as $pack) {
+            if (\in_array($module->name, $pack->modules, true)) {
+                return $pack;
+            }
+        }
+
+        return null;
+    }
+
+    private function unpacked(PackUnderGate $pack): GateStep
+    {
+        return new GateStep(GateStepKind::PackUnpacked, $pack->name.': unpacked into its modules', subject: $pack->package(), requires: $pack->packages());
     }
 
     /**

@@ -28,8 +28,14 @@ enum GateStepKind
      */
     case ValidateSkeleton;
 
-    /** The skeleton's README lists every official module the gate installs. */
+    /** The skeleton's README lists every official module the gate installs, and every pack's command. */
     case ReadmeListsModules;
+
+    /**
+     * The project's composer.json requires each of a pack's modules and not
+     * the pack: Flex unpacked it, so each module is updated on its own.
+     */
+    case PackUnpacked;
 
     /** Drop and recreate the database the step's subject names. */
     case FreshDatabase;

@@ -97,6 +97,78 @@ final class GatePlannerTest extends TestCase
     }
 
     /**
+     * The README tells a supplier to type "composer require supplier", so the
+     * released gate installs a pack's modules that way, once, and checks the
+     * pack was unpacked into them; a module in no pack is required by name.
+     */
+    public function testReleasedModeInstallsAPacksModulesThroughItsAlias(): void
+    {
+        $settings = $this->fleet();
+        $plan = $this->plan(GateMode::Released, $settings, $settings->resolve());
+        $labels = $this->labels($plan);
+
+        self::assertSame(['composer', 'require', 'operator', '--no-interaction', '--no-progress'], $this->step($plan, 'operator: require, as the README says')->command);
+        self::assertSame(['composer', 'require', 'vivutio/front-desk-module', '--no-interaction', '--no-progress'], $this->step($plan, 'vivutio/front-desk-module: require')->command);
+        self::assertNull($this->find($plan, 'vivutio/touring-module: require'));
+        self::assertNull($this->find($plan, 'vivutio/sourcing-module: require'));
+        self::assertCount(1, array_keys($labels, 'operator: require, as the README says', true));
+
+        $unpacked = $this->step($plan, 'operator: unpacked into its modules');
+        self::assertSame(GateStepKind::PackUnpacked, $unpacked->kind);
+        self::assertSame('vivutio/operator-pack', $unpacked->subject);
+        self::assertSame(['vivutio/touring-module', 'vivutio/sourcing-module'], $unpacked->requires);
+        self::assertLessThan(array_search('vivutio/touring-module: doctrine:migrations:migrate', $labels, true), array_search('operator: unpacked into its modules', $labels, true));
+    }
+
+    /** Before a tag a pack is required from its checkout, after the modules it names. */
+    public function testHeadModeRequiresEachPackFromItsCheckout(): void
+    {
+        $settings = $this->fleet();
+        $plan = $this->plan(GateMode::Head, $settings, $settings->resolve());
+        $labels = $this->labels($plan);
+
+        self::assertSame(['composer', 'config', 'repositories.vivutio-operator-pack', 'vcs', '/work/vivutio-operator-pack'], $this->step($plan, 'vivutio/operator-pack: from /work/vivutio-operator-pack')->command);
+        self::assertSame(['composer', 'require', 'vivutio/operator-pack:0.1.x-dev', '--no-interaction', '--no-progress'], $this->step($plan, 'vivutio/operator-pack: require the branch it has out')->command);
+        self::assertSame(['vivutio/touring-module', 'vivutio/sourcing-module'], $this->step($plan, 'operator: unpacked into its modules')->requires);
+        self::assertGreaterThan(array_search('vivutio/sourcing-module: its first page answers', $labels, true), array_search('vivutio/operator-pack: from /work/vivutio-operator-pack', $labels, true));
+    }
+
+    /** A pack the run does not install all of is not required: it would bring modules the run left out. */
+    public function testAPackIsLeftOutWhenTheRunLeavesOutOneOfItsModules(): void
+    {
+        $settings = $this->fleet();
+        $plan = $this->plan(GateMode::Released, $settings, $settings->resolve(['touring']));
+
+        self::assertNull($this->find($plan, 'operator: require, as the README says'));
+        self::assertNotNull($this->find($plan, 'vivutio/touring-module: require'));
+    }
+
+    /** The README check is told every module package and every pack's command. */
+    public function testTheReadmeIsCheckedForEveryModuleAndEveryPack(): void
+    {
+        $settings = $this->fleet();
+        $plan = $this->plan(GateMode::Head, $settings, $settings->resolve());
+
+        self::assertSame(
+            ['vivutio/front-desk-module', 'vivutio/touring-module', 'vivutio/sourcing-module', 'composer require operator'],
+            $this->step($plan, 'the skeleton lists every official module')->requires,
+        );
+    }
+
+    private function fleet(): FleetSettings
+    {
+        return FleetSettings::fromArray([
+            'official_modules' => ['front-desk', 'touring', 'sourcing'],
+            'modules' => [
+                'front-desk' => ['page' => 'front_desk_places'],
+                'touring' => ['page' => 'touring_tours'],
+                'sourcing' => ['page' => 'sourcing_requests'],
+            ],
+            'packs' => ['operator' => ['touring', 'sourcing']],
+        ]);
+    }
+
+    /**
      * @param list<\Vivutio\Devkit\Fleet\ModuleUnderGate> $modules
      */
     private function plan(GateMode $mode, ?FleetSettings $settings = null, array $modules = []): GatePlan

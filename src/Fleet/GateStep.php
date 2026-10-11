@@ -24,6 +24,7 @@ final readonly class GateStep
      * @param string|null  $expect       text the output must carry
      * @param bool         $allowFailure a non-zero exit is judged by $expect alone
      * @param bool         $inProject    run in the project, or beside it
+     * @param list<string> $requires     what a check looks for: the packages a project requires, the words a README carries
      */
     public function __construct(
         public GateStepKind $kind,
@@ -33,6 +34,7 @@ final readonly class GateStep
         public ?string $expect = null,
         public bool $allowFailure = false,
         public bool $inProject = true,
+        public array $requires = [],
     ) {
     }
 

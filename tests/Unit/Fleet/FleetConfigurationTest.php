@@ -18,6 +18,7 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ConfigurationExtensionInterface;
+use Vivutio\Devkit\Fleet\FleetSettings;
 use Vivutio\Devkit\VivutioDevkitBundle;
 
 /**
@@ -45,5 +46,30 @@ final class FleetConfigurationTest extends TestCase
         self::assertIsArray($fleet);
         self::assertIsArray($fleet['modules']);
         self::assertSame(['property', 'front-desk'], array_keys($fleet['modules']));
+    }
+
+    /** A pack is named by its alias and lists its modules by their fleet names. */
+    public function testAPackListsItsModules(): void
+    {
+        $extension = (new VivutioDevkitBundle())->getContainerExtension();
+        self::assertInstanceOf(ConfigurationExtensionInterface::class, $extension);
+        $configuration = $extension->getConfiguration([], new ContainerBuilder());
+        self::assertInstanceOf(ConfigurationInterface::class, $configuration);
+
+        $config = (new Processor())->processConfiguration($configuration, [['fleet' => [
+            'modules' => ['front-desk' => ['page' => 'front_desk_places']],
+            'packs' => ['supplier' => ['front-desk']],
+        ]]]);
+
+        $fleet = $config['fleet'];
+        self::assertIsArray($fleet);
+        self::assertSame(['supplier' => ['front-desk']], $fleet['packs']);
+    }
+
+    public function testAPackNamingAModuleTheFleetDoesNotKnowIsRefused(): void
+    {
+        $this->expectExceptionMessage('devkit.fleet.packs.supplier names "property", a module the fleet does not know');
+
+        FleetSettings::fromArray(['modules' => [], 'packs' => ['supplier' => ['property']]]);
     }
 }

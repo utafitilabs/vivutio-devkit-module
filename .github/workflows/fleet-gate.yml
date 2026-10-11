@@ -36,6 +36,12 @@ on:
       sourcing-ref:
         type: string
         default: '0.1'
+      supplier-pack-ref:
+        type: string
+        default: '0.1'
+      operator-pack-ref:
+        type: string
+        default: '0.1'
       expect-repository:
         description: In a release, the checkout whose head must be the commit about to be tagged
         type: string
@@ -106,6 +112,18 @@ jobs:
           repository: utafitilabs/vivutio-sourcing-module
           ref: ${{ inputs.sourcing-ref }}
           path: fleet/vivutio-sourcing-module
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-supplier-pack
+          ref: ${{ inputs.supplier-pack-ref }}
+          path: fleet/vivutio-supplier-pack
+
+      - uses: actions/checkout@v4
+        with:
+          repository: utafitilabs/vivutio-operator-pack
+          ref: ${{ inputs.operator-pack-ref }}
+          path: fleet/vivutio-operator-pack
 
       # The checkouts are of lines, by name, so every version reads as the
       # line's; a release then insists the line still stands where it was

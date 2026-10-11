@@ -30,7 +30,8 @@ final class VivutioDevkitBundle extends AbstractBundle
 
     /**
      * What the fleet is made of: the official modules in install order, the
-     * commands every install is followed by, and each module's first page.
+     * commands every install is followed by, each module's first page, and the
+     * packs that bring them.
      *
      * @see https://symfony.com/doc/current/bundles/configuration.html#using-the-abstractbundle-class
      */
@@ -52,6 +53,12 @@ final class VivutioDevkitBundle extends AbstractBundle
                             ->arrayPrototype()
                                 ->children()->scalarNode('page')->isRequired()->end()->end()
                             ->end()
+                        ->end()
+                        // A pack by its alias, "supplier", with the modules it brings.
+                        ->arrayNode('packs')
+                            ->normalizeKeys(false)
+                            ->useAttributeAsKey('name')
+                            ->arrayPrototype()->scalarPrototype()->end()->end()
                         ->end()
                     ->end()
                 ->end()

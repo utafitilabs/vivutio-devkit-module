@@ -112,6 +112,7 @@ final class GateRunner
             GateStepKind::Shell => $this->shell($step, $request, $step->inProject ? $request->project : \dirname($request->project)),
             GateStepKind::ValidateSkeleton => $this->shell($step, $request, $request->skeletonCheckout()),
             GateStepKind::ReadmeListsModules => $this->readmeListsModules($step, $request),
+            GateStepKind::PackUnpacked => $this->packUnpacked($step, $request),
             GateStepKind::FreshDatabase => $this->freshDatabase($step),
             GateStepKind::WriteEnvironment => $this->writeEnvironment($request),
             GateStepKind::Serve => $this->serve($step, $request),
@@ -138,26 +139,40 @@ final class GateRunner
     }
 
     /**
-     * The skeleton's README lists every official module the gate installs: the
-     * two lists drift silently otherwise, and a module the gate proves is one
-     * nobody is told to install.
+     * The skeleton's README lists every official module the gate installs, and
+     * the command that installs each pack: the lists drift silently otherwise,
+     * and a module the gate proves is one nobody is told to install.
      */
     private function readmeListsModules(GateStep $step, GateRequest $request): string
     {
         $readme = (string) @file_get_contents($request->skeletonCheckout().'/README.md');
 
-        $missing = [];
-        foreach ($request->modules as $module) {
-            if (!str_contains($readme, $module->package())) {
-                $missing[] = $module->package();
-            }
-        }
-
+        $missing = array_values(array_filter($step->requires, static fn (string $words): bool => !str_contains($readme, $words)));
         if ([] !== $missing) {
-            throw new GateFailure($step, implode("\n", $missing), 'the skeleton\'s README does not list these official modules');
+            throw new GateFailure($step, implode("\n", $missing), 'the skeleton\'s README does not list these');
         }
 
-        return [] === $request->modules ? 'no official module yet' : 'all listed';
+        return [] === $step->requires ? 'no official module yet' : 'all listed';
+    }
+
+    /**
+     * Flex unpacked the pack: the project requires each of its modules by
+     * name, and not the pack.
+     */
+    private function packUnpacked(GateStep $step, GateRequest $request): string
+    {
+        $json = json_decode((string) @file_get_contents($request->project.'/composer.json'), true);
+        $require = \is_array($json) && \is_array($json['require'] ?? null) ? $json['require'] : [];
+
+        $missing = array_values(array_filter($step->requires, static fn (string $package): bool => !isset($require[$package])));
+        if ([] !== $missing) {
+            throw new GateFailure($step, implode("\n", $missing), 'the project does not require these modules of the pack');
+        }
+        if (isset($require[(string) $step->subject])) {
+            throw new GateFailure($step, (string) $step->subject, 'the pack was kept instead of unpacked');
+        }
+
+        return implode(', ', array_map(static fn (string $package): string => $package.' '.(\is_string($require[$package]) ? $require[$package] : ''), $step->requires));
     }
 
     /** The database the url names is DROPPED and recreated. */
