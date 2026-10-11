@@ -160,7 +160,12 @@ jobs:
           # and the packs that bring them.
           mkdir -p config/packages
           printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" '        packs:' "            supplier: ['property']" "            operator: ['touring', 'sourcing']" > config/packages/devkit.yaml
-          php bin/console cache:clear
+          # A file new to config/packages is not among the resources the
+          # compiled container checks, so composer's own cache:clear of a
+          # moment ago would be kept: the cache is removed and built again.
+          rm -rf var/cache && php bin/console cache:warmup
+          # A gate that installs nothing passes on nothing.
+          php bin/console fleet:gate --mode=released --dry-run --database-url='postgresql://app:app@127.0.0.1:5432/fleet_gate' | grep -q 'modules    vivutio/' || { echo "::error::the gate's host reads no official modules"; exit 1; }
 
       - name: fleet:gate --mode=${{ inputs.mode }}
         working-directory: host
