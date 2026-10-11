@@ -177,7 +177,7 @@ jobs:
           # What the fleet is made of: the official modules, each with its first page,
           # and the packs that bring them.
           mkdir -p config/packages
-          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing', 'ticketing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" "            ticketing: { page: 'ticketing_tickets' }" '        packs:' "            supplier: ['property']" "            operator: ['touring', 'sourcing']" > config/packages/devkit.yaml
+          printf '%s\n' 'devkit:' '    fleet:' "        official_modules: ['property', 'front-desk', 'touring', 'sourcing', 'ticketing']" "        after_migrate: ['doctrine:migrations:migrate']" '        modules:' "            property: { page: 'property_list' }" "            front-desk: { page: 'front_desk_places' }" "            touring: { page: 'touring_tours' }" "            sourcing: { page: 'sourcing_requests' }" "            ticketing: { page: 'ticketing_tickets' }" '        packs:' "            supplier: ['property']" "            operator: ['touring', 'sourcing']" "            agency: ['ticketing', 'sourcing']" > config/packages/devkit.yaml
           # A file new to config/packages is not among the resources the
           # compiled container checks, so composer's own cache:clear of a
           # moment ago would be kept: the cache is removed and built again.
